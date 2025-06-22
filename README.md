@@ -32,5 +32,5 @@
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/yourusername/hisabi-pos.git
+   git clone https://github.com/hkitlab/hisabi-pos.git
    cd hisabi-pos
