@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hisabi POS</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;700&display=swap');
+        :root { --primary-color: #007bff; --secondary-color: #28a745; --danger-color: #dc3545; --warning-color: #ffc107; }
+        body { font-family: 'Noto Sans Bengali', sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; }
+        .container { max-width: 1300px; margin: 20px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        nav { display: flex; flex-wrap: wrap; justify-content: center; background-color: var(--primary-color); padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        nav a { color: white; padding: 10px 20px; text-decoration: none; font-weight: 500; border-radius: 4px; transition: background-color 0.3s; }
+        nav a:hover, nav a.active { background-color: #0056b3; }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        h1, h2 { text-align: center; color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f2f2f2; }
+        form { padding: 20px; border: 1px solid #ccc; border-radius: 5px; background: #fafafa; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        label { margin-bottom: 5px; font-weight: 500; }
+        input[type="text"], input[type="number"], input[type="file"] { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.3s; font-weight: bold; }
+        .btn-add { background-color: var(--secondary-color); }
+        .btn-update { background-color: var(--warning-color); }
+        .btn-edit { background-color: var(--warning-color); color: #333; }
+        .btn-delete { background-color: var(--danger-color); }
+        .pos-container { display: flex; flex-direction: column; gap: 20px; }
+        @media (min-width: 768px) { .pos-container { flex-direction: row; } }
+        .product-selection { width: 100%; }
+        @media (min-width: 768px) { .product-selection { width: 60%; } }
+        .billing-cart { width: 100%; }
+        @media (min-width: 768px) { .billing-cart { width: 40%; } }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-height: 70vh; overflow-y: auto; padding: 5px; }
+        .product-item { padding: 15px; border: 1px solid var(--primary-color); text-align: center; border-radius: 5px; cursor: pointer; transition: background-color 0.3s; word-wrap: break-word; }
+        .product-item:hover { background-color: #e9f5ff; }
+        .total-section { margin-top: 20px; text-align: right; font-size: 1.1em; }
+        .total-section .grand-total { font-size: 1.4em; font-weight: bold; }
+        .checkout-btn { width: 100%; padding: 15px; font-size: 1.2em; background-color: var(--secondary-color); margin-top: 10px; }
+        #current-logo, #pos-logo { max-width: 150px; max-height: 150px; display: block; margin: 10px auto; border: 1px solid #ccc; padding: 5px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header style="text-align:center; margin-bottom:20px;">
+            <img id="pos-logo" src="" alt="Shop Logo" style="display:none;">
+            <h1 id="shop-name-header">হিসাবি পিওএস</h1>
+        </header>
+        <nav>
+            <a href="#" class="nav-link active" data-view="pos-view">পিওএস (POS)</a>
+            <a href="#" class="nav-link" data-view="products-view">পণ্য ব্যবস্থাপনা</a>
+            <a href="#" class="nav-link" data-view="sales-view">বিক্রয়ের ইতিহাস</a>
+            <a href="#" class="nav-link" data-view="settings-view">সেটিংস</a>
+        </nav>
+
+        <div id="pos-view" class="view active">
+            <div class="pos-container">
+                <div class="product-selection">
+                    <h2>পণ্য নির্বাচন করুন</h2>
+                    <div id="pos-product-grid" class="product-grid"></div>
+                </div>
+                <div class="billing-cart">
+                    <h2>চলতি বিল</h2>
+                    <table>
+                        <thead><tr><th>পণ্য</th><th>মূল্য</th></tr></thead>
+                        <tbody id="cart-items"></tbody>
+                    </table>
+                    <div class="total-section">
+                        <p>সাব-টোটাল: <span id="sub-total">0.00</span></p>
+                        <p>ভ্যাট (<span id="vat-rate-display">0</span>%): <span id="vat-amount">0.00</span></p>
+                        <p class="grand-total">সর্বমোট: <span id="total-amount">0.00</span></p>
+                    </div>
+                    <button id="checkout-btn" class="checkout-btn">বিক্রয় সম্পন্ন করুন</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="products-view" class="view">
+            <h2>পণ্য ব্যবস্থাপনা</h2>
+            <form id="product-form">
+                <div class="form-grid" style="grid-template-columns: 1fr 1fr auto; align-items: end;">
+                    <input type="hidden" id="product-id">
+                    <input type="text" id="product-name" placeholder="পণ্যের নাম" required>
+                    <input type="number" id="product-price" placeholder="মূল্য" required step="0.01">
+                    <button type="submit" class="btn-add">পণ্য যোগ করুন</button>
+                </div>
+            </form>
+            <table>
+                <thead><tr><th>নাম</th><th>মূল্য</th><th>কার্যক্রম</th></tr></thead>
+                <tbody id="products-table-body"></tbody>
+            </table>
+        </div>
+
+        <div id="sales-view" class="view">
+             <h2>বিক্রয়ের ইতিহাস</h2>
+            <table>
+                <thead><tr><th>বিক্রয় আইডি</th><th>তারিখ ও সময়</th><th>মোট মূল্য</th><th>পণ্যের বিবরণ</th></tr></thead>
+                <tbody id="sales-table-body"></tbody>
+            </table>
+        </div>
+
+        <div id="settings-view" class="view">
+            <h2>সিস্টেম সেটিংস</h2>
+            <form id="settings-form">
+                <div class="form-grid">
+                    <div class="form-group"><label for="shop-name">দোকানের নাম</label><input type="text" id="shop-name"></div>
+                    <div class="form-group"><label for="shop-address">ঠিকানা</label><input type="text" id="shop-address"></div>
+                    <div class="form-group"><label for="shop-phone">ফোন নম্বর</label><input type="text" id="shop-phone"></div>
+                    <div class="form-group"><label for="currency-symbol">কারেন্সি চিহ্ন</label><input type="text" id="currency-symbol" value="৳"></div>
+                    <div class="form-group"><label for="vat-rate">ভ্যাট/ট্যাক্স হার (%)</label><input type="number" id="vat-rate" step="0.1" value="5"></div>
+                    <div class="form-group"><label for="footer-message">রশিদের ফুটার মেসেজ</label><input type="text" id="footer-message" placeholder="ধন্যবাদ! আবার আসবেন।"></div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="logo-upload">দোকানের লোগো আপলোড করুন</label>
+                        <input type="file" id="logo-upload" accept="image/*">
+                        <p id="upload-progress" style="display:none; color: green;"></p>
+                        <img id="current-logo" src="" alt="Current Logo" style="display:none;">
+                    </div>
+                </div>
+                <button type="submit" class="btn-add" style="width:100%; margin-top:20px; padding:15px;">সেটিংস সেভ করুন</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+
+    <script>
+        // ===================================================================================
+        // আপনার নিজের FIREBASE CONFIG কোডটি এখানে পেস্ট করুন
+        const firebaseConfig = {
+            apiKey: "AIzaSyBzLxLStBqHP2NOToJJ8z3kBpL6R39zaw8",
+            authDomain: "hisabi-pos.firebaseapp.com",
+            projectId: "hisabi-pos",
+            storageBucket: "hisabi-pos.firebasestorage.app",
+            messagingSenderId: "304545454743",
+            appId: "1:304545454743:web:2a209bf46ec225d33ce7d2"
+        };
+        // ===================================================================================
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        const settingsDocRef = db.collection('settings').doc('mainSettings');
+        const productsCollection = db.collection('products');
+        const salesCollection = db.collection('sales');
+
+        // --- Global State ---
+        let cart = [];
+        let editingProductId = null;
+        let appSettings = {};
+
+        // --- View Navigation ---
+        const navLinks = document.querySelectorAll('.nav-link');
+        const views = document.querySelectorAll('.view');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const viewId = link.getAttribute('data-view');
+                navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                views.forEach(view => { view.style.display = 'none'; });
+                document.getElementById(viewId).style.display = 'block';
+
+                if (viewId === 'products-view' || viewId === 'pos-view') fetchProducts();
+                if (viewId === 'sales-view') fetchSales();
+            });
+        });
+        
+        // --- Settings Management ---
+        const settingsForm = document.getElementById('settings-form');
+        async function loadAndApplySettings() {
+            const doc = await settingsDocRef.get();
+            if (doc.exists) {
+                appSettings = doc.data();
+                document.getElementById('shop-name').value = appSettings.name || '';
+                document.getElementById('shop-address').value = appSettings.address || '';
+                document.getElementById('shop-phone').value = appSettings.phone || '';
+                document.getElementById('currency-symbol').value = appSettings.currencySymbol || '৳';
+                document.getElementById('vat-rate').value = appSettings.vatRate || 0;
+                document.getElementById('footer-message').value = appSettings.footerMessage || '';
+                
+                const logoImg = document.getElementById('current-logo');
+                const posLogoImg = document.getElementById('pos-logo');
+                if(appSettings.logoUrl) {
+                    logoImg.src = appSettings.logoUrl;
+                    posLogoImg.src = appSettings.logoUrl;
+                    logoImg.style.display = 'block';
+                    posLogoImg.style.display = 'block';
+                } else {
+                    logoImg.style.display = 'none';
+                    posLogoImg.style.display = 'none';
+                }
+
+                document.getElementById('shop-name-header').innerText = appSettings.name || 'হিসাবি পিওএস';
+                document.title = appSettings.name || 'Hisabi POS';
+                document.getElementById('vat-rate-display').innerText = appSettings.vatRate || 0;
+            }
+             renderCart();
+        }
+
+        settingsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const logoFile = document.getElementById('logo-upload').files[0];
+            const progressP = document.getElementById('upload-progress');
+
+            let updatedSettings = {
+                name: document.getElementById('shop-name').value,
+                address: document.getElementById('shop-address').value,
+                phone: document.getElementById('shop-phone').value,
+                currencySymbol: document.getElementById('currency-symbol').value,
+                vatRate: parseFloat(document.getElementById('vat-rate').value),
+                footerMessage: document.getElementById('footer-message').value,
+                logoUrl: appSettings.logoUrl || ''
+            };
+
+            if (logoFile) {
+                progressP.innerText = 'লোগো আপলোড হচ্ছে...';
+                progressP.style.display = 'block';
+                const storageRef = storage.ref(`logos/shop_logo_${Date.now()}`);
+                const task = storageRef.put(logoFile);
+                await task;
+                updatedSettings.logoUrl = await storageRef.getDownloadURL();
+                progressP.innerText = 'লোগো আপলোড সম্পন্ন!';
+            }
+            
+            await settingsDocRef.set(updatedSettings, { merge: true });
+            alert('সেটিংস সফলভাবে সেভ হয়েছে!');
+            await loadAndApplySettings();
+        });
+
+        // --- Product Management ---
+        const productForm = document.getElementById('product-form');
+        const productsTableBody = document.getElementById('products-table-body');
+        const posProductGrid = document.getElementById('pos-product-grid');
+        async function fetchProducts() {
+            const snapshot = await productsCollection.orderBy('name').get();
+            productsTableBody.innerHTML = '';
+            posProductGrid.innerHTML = '';
+            snapshot.forEach(doc => {
+                const product = { id: doc.id, ...doc.data() };
+                const currency = appSettings.currencySymbol || '৳';
+                productsTableBody.innerHTML += `<tr><td>${product.name}</td><td>${currency}${product.price.toFixed(2)}</td><td><button class="btn-edit" onclick="editProduct('${product.id}', '${product.name}', ${product.price})">এডিট</button> <button class="btn-delete" onclick="deleteProduct('${product.id}')">ডিলিট</button></td></tr>`;
+                posProductGrid.innerHTML += `<div class="product-item" onclick="addToCart('${product.id}', '${product.name}', ${product.price})"><strong>${product.name}</strong><br>${currency}${product.price.toFixed(2)}</div>`;
+            });
+        }
+        productForm.addEventListener('submit', async (e) => { e.preventDefault(); const name = document.getElementById('product-name').value; const price = parseFloat(document.getElementById('product-price').value); if (editingProductId) { await productsCollection.doc(editingProductId).update({ name, price }); editingProductId = null; productForm.querySelector('button').className = 'btn-add'; productForm.querySelector('button').innerText = 'পণ্য যোগ করুন'; } else { await productsCollection.add({ name, price }); } productForm.reset(); fetchProducts(); });
+        function editProduct(id, name, price) { editingProductId = id; document.getElementById('product-id').value = id; document.getElementById('product-name').value = name; document.getElementById('product-price').value = price; productForm.querySelector('button').className = 'btn-update'; productForm.querySelector('button').innerText = 'আপডেট করুন';}
+        async function deleteProduct(id) { if (confirm('আপনি কি এই পণ্যটি মুছে ফেলতে নিশ্চিত?')) { await productsCollection.doc(id).delete(); fetchProducts(); }}
+
+        // --- POS & Billing ---
+        const cartItemsTable = document.getElementById('cart-items');
+        function addToCart(id, name, price) { cart.push({ id, name, price }); renderCart(); }
+        function renderCart() {
+            cartItemsTable.innerHTML = '';
+            const currency = appSettings.currencySymbol || '৳';
+            let subTotal = 0;
+            cart.forEach(item => {
+                cartItemsTable.innerHTML += `<tr><td>${item.name}</td><td>${currency}${item.price.toFixed(2)}</td></tr>`;
+                subTotal += item.price;
+            });
+            const vatRate = appSettings.vatRate || 0;
+            const vatAmount = subTotal * (vatRate / 100);
+            const total = subTotal + vatAmount;
+            document.getElementById('sub-total').innerText = `${currency}${subTotal.toFixed(2)}`;
+            document.getElementById('vat-amount').innerText = `${currency}${vatAmount.toFixed(2)}`;
+            document.getElementById('total-amount').innerText = `${currency}${total.toFixed(2)}`;
+        }
+        document.getElementById('checkout-btn').addEventListener('click', async () => {
+             if (cart.length === 0) { alert('অনুগ্রহ করে প্রথমে কার্টে পণ্য যোগ করুন।'); return; }
+             const subTotal = cart.reduce((sum, item) => sum + item.price, 0);
+             const vatRate = appSettings.vatRate || 0;
+             const vatAmount = subTotal * (vatRate / 100);
+             const total = subTotal + vatAmount;
+             const saleData = { timestamp: firebase.firestore.FieldValue.serverTimestamp(), total: total, items: cart, vatRate: vatRate, currencySymbol: appSettings.currencySymbol || '৳' };
+             await salesCollection.add(saleData);
+             alert('বিক্রয় সফলভাবে সম্পন্ন হয়েছে!');
+             cart = []; renderCart();
+        });
+
+
+        // --- Sales History ---
+        const salesTableBody = document.getElementById('sales-table-body');
+        async function fetchSales() {
+            const snapshot = await salesCollection.orderBy('timestamp', 'desc').get();
+            salesTableBody.innerHTML = '';
+            snapshot.forEach(doc => {
+                const sale = { id: doc.id, ...doc.data() };
+                const saleDate = sale.timestamp ? sale.timestamp.toDate().toLocaleString('bn-BD') : 'N/A';
+                const itemsString = sale.items.map(item => item.name).join(', ');
+                const currency = sale.currencySymbol || '৳';
+                salesTableBody.innerHTML += `<tr><td>${sale.id.substring(0,6)}...</td><td>${saleDate}</td><td>${currency}${sale.total.toFixed(2)}</td><td>${itemsString}</td></tr>`;
+            });
+        }
+
+        // --- Initial Load ---
+        async function initializeApp() {
+            await loadAndApplySettings();
+            fetchProducts();
+        }
+        initializeApp();
+
+    </script>
+</body>
+</html>
